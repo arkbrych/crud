@@ -1,0 +1,53 @@
+package pl.execon.dataCrud.controller;
+
+import org.springframework.http.ResponseEntity;
+import pl.execon.dataCrud.repository.EndpointItemRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import pl.execon.dto.EndpointItem;
+
+import javax.validation.Valid;
+import java.util.List;
+import java.util.Optional;
+
+@RequestMapping("/mockDB")
+@Slf4j
+@RequiredArgsConstructor
+@RestController
+public class EndpointItemController {
+
+    @Autowired
+    private EndpointItemRepository endpointItemRepository;
+
+    @GetMapping(value = "/managed-items")
+    public List<EndpointItem> getAllEndpoints() {
+        return endpointItemRepository.findAll();
+    }
+
+    @PostMapping(value = "/managed-items")
+    public EndpointItem createEndpointItem(@Valid @RequestBody EndpointItem endpointItem) {
+        endpointItem.setEndpointPath(endpointItem.getEndpointPath());
+        endpointItem.setResponseContent(endpointItem.getResponseContent());
+        endpointItemRepository.save(endpointItem);
+        return endpointItem;
+    }
+
+    @DeleteMapping(value = "/managed-items/{id}")
+    public void deleteEndpointItem(@PathVariable("id") String id) {
+        endpointItemRepository.deleteById(id);
+    }
+
+    @GetMapping(value = "/managed-items/{id}")
+    public Optional<EndpointItem> getEndpointItemId(@PathVariable("id") String id) {
+        return endpointItemRepository.findById(id);
+    }
+
+    @PutMapping(value = "/managed-items/{id}")
+    public ResponseEntity<EndpointItem> modifyEndpointItem(@PathVariable("id") String id, @Valid @RequestBody EndpointItem endpointItem) {
+        endpointItem.setId(id);
+        return ResponseEntity.ok().body(endpointItemRepository.save(endpointItem));
+    }
+}
