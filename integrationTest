@@ -1,0 +1,181 @@
+package pl.execon.dataCrud.controller;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.skyscreamer.jsonassert.JSONAssert;
+import org.skyscreamer.jsonassert.JSONCompareMode;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import pl.execon.dataCrud.repository.EndpointItemRepository;
+import pl.execon.dto.EndpointItem;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+
+@Slf4j
+@ActiveProfiles("test")
+@SpringBootTest
+@AutoConfigureMockMvc
+public class CrudIntegrationTest {
+
+    public static final String endpointPath = "test";
+    public static final String id = "123";
+    public static final String responseContent = "code=200";
+    private static final String CHARACTER_ENCODING = "utf-8";
+
+    @Autowired
+    private WebApplicationContext webApplicationContext;
+    private MockMvc mockMvc;
+
+    @Autowired
+    private EndpointItemRepository endpointItemRepository;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @BeforeEach
+    void setUp() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(this.webApplicationContext).build();
+    }
+
+    @Test
+    void shouldReturnAllObjectsFromDataBase() throws Exception {
+        // given
+        endpointItemRepository.deleteAll();
+        List<EndpointItem> objectArrayList = new ArrayList<>();
+        objectArrayList.add(
+                new EndpointItem(id, endpointPath, HttpMethod.GET, responseContent));
+        endpointItemRepository.saveAll(objectArrayList);
+        // when
+        final MvcResult mvcResult = mockMvc.perform(
+                MockMvcRequestBuilders.get("/mockDB/managed-items")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+                        .characterEncoding(CHARACTER_ENCODING)
+        )
+                .andDo(print())
+                .andReturn();
+        // then
+        assertEquals(HttpStatus.OK.value(), mvcResult.getResponse().getStatus());
+        JSONAssert.assertEquals("[{id:\"123\",endpointPath:\"test\",methodType:\"GET\",responseContent:\"code=200\"}]",
+                mvcResult.getResponse().getContentAsString(), JSONCompareMode.LENIENT);
+    }
+
+    @Test
+    void shouldCreateObjectInDataBase() throws Exception {
+        // given
+        endpointItemRepository.deleteAll();
+        final EndpointItem endpointItem = EndpointItem.builder()
+                .id(id)
+                .endpointPath(endpointPath)
+                .methodType(HttpMethod.POST)
+                .responseContent(responseContent)
+                .build();
+
+        // when
+        final MvcResult mvcResult = mockMvc.perform(
+                MockMvcRequestBuilders.post("/mockDB/managed-items", endpointItem)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(endpointItem))
+                        .characterEncoding(CHARACTER_ENCODING)
+        )
+                .andDo(print())
+                .andReturn();
+
+        // then
+        assertEquals(HttpStatus.OK.value(), mvcResult.getResponse().getStatus());
+        JSONAssert.assertEquals("{id:\"123\",endpointPath:\"test\",methodType:\"POST\",responseContent:\"code=200\"}",
+                mvcResult.getResponse().getContentAsString(), JSONCompareMode.LENIENT);
+    }
+
+    @Test
+    void shouldDeleteObjectFromDataBase() throws Exception {
+        // given
+        endpointItemRepository.deleteAll();
+        List<EndpointItem> objectArrayList = new ArrayList<>();
+        objectArrayList.add(
+                new EndpointItem(id, endpointPath, HttpMethod.DELETE, responseContent));
+        endpointItemRepository.saveAll(objectArrayList);
+
+        // when
+        final MvcResult mvcResult = mockMvc.perform(
+                MockMvcRequestBuilders.delete("/mockDB/managed-items/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+                        .characterEncoding(CHARACTER_ENCODING)
+        )
+                .andDo(print())
+                .andReturn();
+
+        // then
+        assertEquals(HttpStatus.OK.value(), mvcResult.getResponse().getStatus());
+        assertTrue(mvcResult.getResponse().getContentAsString().isEmpty());
+    }
+
+    @Test
+    void shouldReturnObjectByIdFromDataBase() throws Exception {
+        // given
+        endpointItemRepository.deleteAll();
+        List<EndpointItem> objectArrayList = new ArrayList<>();
+        objectArrayList.add(
+                new EndpointItem(id, endpointPath, HttpMethod.GET, responseContent));
+        endpointItemRepository.saveAll(objectArrayList);
+
+        // when
+        final MvcResult mvcResult = mockMvc.perform(
+                MockMvcRequestBuilders.get("/mockDB/managed-items/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}")
+                        .characterEncoding(CHARACTER_ENCODING)
+        )
+                .andDo(print())
+                .andReturn();
+
+        // then
+        assertEquals(HttpStatus.OK.value(), mvcResult.getResponse().getStatus());
+        JSONAssert.assertEquals("{id:\"123\",endpointPath:\"test\",methodType:\"GET\",responseContent:\"code=200\"}",
+                mvcResult.getResponse().getContentAsString(), JSONCompareMode.LENIENT);
+    }
+
+    @Test
+    void shouldModifyObjectInDataBase() throws Exception {
+        // given
+        endpointItemRepository.deleteAll();
+        EndpointItem ei = new EndpointItem(id, "oldVariable", HttpMethod.PUT, responseContent);
+        endpointItemRepository.save(ei);
+
+        EndpointItem eiNew = new EndpointItem(id, "newVariable", HttpMethod.PUT, responseContent);
+        // when
+        final MvcResult mvcResult = mockMvc.perform(
+                MockMvcRequestBuilders.put("/mockDB/managed-items/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(eiNew))
+                        .characterEncoding(CHARACTER_ENCODING)
+        )
+                .andDo(print())
+                .andReturn();
+
+        // then
+        final EndpointItem endpointItem = objectMapper.readValue(mvcResult.getResponse().getContentAsString(), EndpointItem.class);
+        assertEquals(HttpStatus.OK.value(), mvcResult.getResponse().getStatus());
+        assertThat(endpointItem.getId()).isEqualTo(eiNew.getId());
+        assertThat(endpointItem.getEndpointPath()).isEqualTo(eiNew.getEndpointPath());
+    }
+}
